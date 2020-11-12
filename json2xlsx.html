@@ -1,0 +1,120 @@
+<html>
+<header>
+    <script src="https://unpkg.com/xlsx@0.16.3/dist/xlsx.full.min.js"></script>
+</header>
+
+<body>
+    <span>Step1: 上传json文件，最外层是list</span>
+    <br />
+    <br />
+    <input type='file' onchange='importDataSource(this)' />
+
+    <br />
+    <p> 文件内容Demo:
+        [
+        {
+        "key_as_string":"2020-06-30T00:00:00.000Z",
+        "key":1593475200000,
+        "doc_count":1
+        },
+        {
+        "key_as_string":"2020-06-30T01:00:00.000Z",
+        "key":1593478800000,
+        "doc_count":3
+        }
+        ]
+    </p>
+    <hr />
+    <p>Step2: 下载文件</p>
+    <button type="button" onclick="json2Excel()">点击下载</button>
+
+    <script>
+
+        var dataSource = null;
+        var fileName = '';
+
+        //1、importDataSource() 方法用来获取json数据
+        function importDataSource(obj) {
+
+            //2、obj.files[0]获得onchange文件，name获得文件名作为Excel的文件名
+            fileName = obj.files[0].name.split('.')[0];
+
+            //3、创建FileReader对象，将文件内容读入内存，通过一些api接口，可以在主线程中访问本地文件
+            var reader = new FileReader();
+
+            //4、readAsText(file) 异步按字符读取文件内容，结果用字符串形式表示
+            reader.readAsText(obj.files[0]);
+
+            var that = this
+
+            //5、onload事件，当读取操作成功完成时调用
+            reader.onload = function () {
+
+                //读取完毕后输出结果 为字符串 此时需要转成json对象
+                that.dataSource = JSON.parse(this.result)
+                alert("上传成功");
+            }
+        }
+
+
+        var wopts = {
+            bookType: 'xlsx',
+            bookSST: false,
+            type: 'binary'
+        };
+        var workBook = {
+            SheetNames: ['Sheet1'],
+            Sheets: {},
+            Props: {}
+        };
+
+        function json2Excel() {
+            //1、XLSX.utils.json_to_sheet(data) 接收一个对象数组并返回一个基于对象关键字自动生成的“标题”的工作表，默认的列顺序由使用Object.keys的字段的第一次出现确定
+            //2、将数据放入对象workBook的Sheets中等待输出
+            workBook.Sheets['Sheet1'] = XLSX.utils.json_to_sheet(dataSource)
+
+            //3、XLSX.write() 开始编写Excel表格
+            //4、changeData() 将数据处理成需要输出的格式
+            saveAs(new Blob([changeData(XLSX.write(workBook, wopts))], { type: 'application/octet-stream' }))
+        }
+
+        function changeData(s) {
+            //如果存在ArrayBuffer对象(es6) 最好采用该对象
+            if (typeof ArrayBuffer !== 'undefined') {
+
+                //1、创建一个字节长度为s.length的内存区域
+                var buf = new ArrayBuffer(s.length);
+
+                //2、创建一个指向buf的Unit8视图，开始于字节0，直到缓冲区的末尾
+                var view = new Uint8Array(buf);
+
+                //3、返回指定位置的字符的Unicode编码
+                for (var i = 0; i != s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
+                return buf;
+
+            } else {
+                var buf = new Array(s.length);
+                for (var i = 0; i != s.length; ++i) buf[i] = s.charCodeAt(i) & 0xFF;
+                return buf;
+            }
+        }
+
+
+        function saveAs(obj, fileName) {//当然可以自定义简单的下载文件实现方式 
+            console.log("save")
+            var tmpa = document.createElement("a");
+
+            tmpa.download = fileName || "result.xlsx";
+            tmpa.href = URL.createObjectURL(obj); //绑定a标签
+            tmpa.click(); //模拟点击实现下载
+
+            setTimeout(function () { //延时释放
+                URL.revokeObjectURL(obj); //用URL.revokeObjectURL()来释放这个object URL
+            }, 100);
+
+        }
+
+    </script>
+</body>
+
+</html>
